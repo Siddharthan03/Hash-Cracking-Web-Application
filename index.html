@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>De-Hasher</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .container {
+            margin-top: 50px;
+        }
+        .card {
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .card-title {
+            font-weight: bold;
+            color: #007bff;
+        }
+        .btn-primary, .btn-success {
+            border-radius: 20px;
+        }
+        .result {
+            margin-top: 20px;
+            background-color: #e9ecef;
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: inset 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .text-danger {
+            color: #dc3545;
+        }
+        footer {
+            margin-top: 50px;
+            padding: 20px 0;
+            text-align: center;
+            background-color: #007bff;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center mb-5">De-Hasher</h1>
+
+        <!-- Crack a Single Hash Section -->
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Crack a Single Hash</h5>
+                <form id="crack-form">
+                    <div class="form-group">
+                        <label for="hashvalue">Hash Value</label>
+                        <input type="text" class="form-control" id="hashvalue" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Crack Hash</button>
+                </form>
+                <div class="result" id="crack-result"></div>
+            </div>
+        </div>
+
+        <!-- Options Section -->
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Choose an Option</h5>
+                <button id="generate-option" class="btn btn-primary">Generate Hash</button>
+                <button id="upload-option" class="btn btn-success">Upload File</button>
+            </div>
+        </div>
+
+        <!-- Generate Hashed Words Section -->
+        <div class="card" id="generate-section" style="display: none;">
+            <div class="card-body">
+                <h5 class="card-title">Generate Hashed Words</h5>
+                <button id="generate-hashed-words" class="btn btn-primary">Generate Hashed Words</button>
+                <div class="result" id="generate-result"></div>
+            </div>
+        </div>
+
+        <!-- Upload File Section -->
+        <div class="card" id="upload-section" style="display: none;">
+            <div class="card-body">
+                <h5 class="card-title">Upload a File</h5>
+                <form id="upload-form" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="file">File</label>
+                        <input type="file" class="form-control-file" id="file" name="file" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Upload File</button>
+                </form>
+                <div class="result" id="upload-result"></div>
+                <div class="form-group mt-4" id="process-file-section" style="display: none;">
+                    <button id="process-file" class="btn btn-success">Proceed</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2024 De-Hasher. All rights reserved.</p>
+    </footer>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            // Handle cracking a single hash
+            $('#crack-form').submit(function (event) {
+                event.preventDefault();
+                const hashvalue = $('#hashvalue').val();
+                $.post('/crack', { hashvalue: hashvalue }, function (data) {
+                    $('#crack-result').html(`<p><strong>Function Type:</strong> ${data.algorithm}</p>
+                                              <p><strong>Hash Value:</strong> ${hashvalue}</p>
+                                              <p><strong>Original Text:</strong> ${data.original}</p>`);
+                }).fail(function () {
+                    $('#crack-result').html('<p class="text-danger">Error: Hash not found</p>');
+                });
+            });
+
+            // Show the generate hashed words section
+            $('#generate-option').click(function () {
+                $('#generate-section').show();
+                $('#upload-section').hide();
+            });
+
+            // Show the upload file section
+            $('#upload-option').click(function () {
+                $('#upload-section').show();
+                $('#generate-section').hide();
+            });
+
+            // Handle file upload
+            $('#upload-form').submit(function (event) {
+                event.preventDefault();
+                const formData = new FormData(this);
+                $.ajax({
+                    url: '/upload',
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function (data) {
+                        $('#upload-result').html(`<p>File uploaded successfully. Filename: ${data.filename}</p>`);
+                        $('#process-file-section').show();
+                        $('#process-file').data('filename', data.filename);
+                    },
+                    error: function (jqXHR) {
+                        $('#upload-result').html(`<p class="text-danger">Error: ${jqXHR.responseJSON.error}</p>`);
+                    }
+                });
+            });
+
+            // Handle file processing
+            $('#process-file').click(function () {
+                const filename = $(this).data('filename');
+                $.ajax({
+                    url: '/process_file',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ filename: filename }),
+                    success: function (data) {
+                        let resultHtml = '<p>File processed successfully. Results:</p><ul>';
+                        for (const hashvalue in data.results) {
+                            const entry = data.results[hashvalue];
+                            resultHtml += `<li><strong>Function Type:</strong> ${entry.algorithm}<br>
+                                            <strong>Hash Value:</strong> ${hashvalue}<br>
+                                            <strong>Original Text:</strong> ${entry.original}</li><br>`;
+                        }
+                        resultHtml += '</ul>';
+                        resultHtml += `<a href="/download/${data.csv_filename}" class="btn btn-success mt-3">Download CSV</a>`;
+                        $('#upload-result').html(resultHtml); // Updated this line to print in upload section
+                    },
+                    error: function (jqXHR) {
+                        $('#upload-result').html(`<p class="text-danger">Error: ${jqXHR.responseJSON.error}</p>`);
+                    }
+                });
+            });
+
+            // Handle generating hashed words
+            $('#generate-hashed-words').click(function () {
+                $.post('/generate_hashed_words', function () {
+                    $('#generate-result').html('<p>Hashed words generated successfully. Check the downloaded file.</p>');
+                }).fail(function () {
+                    $('#generate-result').html('<p class="text-danger">Error: Failed to generate hashed words</p>');
+                });
+            });
+        });
+    </script>
+</body>
+</html>
